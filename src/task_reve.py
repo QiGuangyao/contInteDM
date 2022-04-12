@@ -93,10 +93,25 @@ def _multisensory_output_cue_20_delay_40(config, mode, **kwargs):
 
         c_color = rng.choice([-0.08, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.08], (batch_size,))
         c_motion = rng.choice([-0.08, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.08], (batch_size,))
-
         cue = rng.choice([0., 1.], (batch_size,))
+    elif mode == 'random_test':
+        batch_size = kwargs['batch_size']
 
+        stim1_duration = (rng.uniform(800, 800, batch_size)/dt).astype(int)
+        # gamma_bar_color = rng.choice([0.8], (batch_size,))
+        # gamma_bar_motion = rng.choice([0.8], (batch_size,))
+        gamma_bar_color = rng.uniform(0.8, 1.2, batch_size)
+        gamma_bar_motion = rng.uniform(0.8, 1.2, batch_size)
+
+        c_color = rng.choice([-0.04, -0.02, -0.01,-0.005,0,0.005,0.01, 0.02, 0.04], (batch_size,))# -0.005,0,0.005
+        c_motion = rng.choice([ -0.04, -0.02, -0.01,-0.005,0,0.005, 0.01, 0.02, 0.04], (batch_size,))
+
+        # c_color = rng.choice([-0.08, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.08], (batch_size,))
+        # c_motion = rng.choice([-0.08, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.08], (batch_size,))
+        
+        cue = rng.choice([0., 1.], (batch_size,))
     elif mode == 'test':
+        
         batch_size = kwargs['batch_size']
         stim1_duration = (rng.uniform(800, 800, batch_size)/dt).astype(int)
         gamma_bar_color = kwargs['gamma_bar_color']
@@ -104,6 +119,7 @@ def _multisensory_output_cue_20_delay_40(config, mode, **kwargs):
 
 
         if not hasattr(gamma_bar_color, '__iter__'):
+            print('__iter__')
             gamma_bar_color = np.array([gamma_bar_color] * batch_size)
 
         if not hasattr(gamma_bar_motion, '__iter__'):
@@ -120,17 +136,21 @@ def _multisensory_output_cue_20_delay_40(config, mode, **kwargs):
         c_motion = kwargs['c_motion']
         if not hasattr(c_color, '__iter__'):
             c_motion = np.array([c_motion] * batch_size)
+        
+        print('test',type(gamma_bar_color), gamma_bar_motion, c_color, c_motion)
+        
+    
     else:
         raise ValueError('Unknown mode: ' + str(mode))
 
-
+    
 
     strength1_color = gamma_bar_color + c_color
     strength2_color = gamma_bar_color - c_color
     strength1_motion = gamma_bar_motion + c_motion
     strength2_motion = gamma_bar_motion - c_motion
-
-
+    
+    # print('3',batch_size,strength1_color, strength1_motion)
 
     # task structure:
     """
@@ -188,15 +208,23 @@ def _multisensory_output_cue_20_delay_40(config, mode, **kwargs):
     trial.add('out', 2, ons=response_on, offs=response_off, strengths=output_motion_target1)
     trial.add('out', 3, ons=response_on, offs=response_off, strengths=output_motion_target2)
     #target output
-    trial.add('cost_mask', 0, ons=cue_on, offs=response_off, strengths=trial.expand(1.))
-    trial.add('cost_mask', 1, ons=cue_on, offs=response_off, strengths=trial.expand(1.))
-    trial.add('cost_mask', 2, ons=cue_on, offs=response_off, strengths=trial.expand(1.))
-    trial.add('cost_mask', 3, ons=cue_on, offs=response_off, strengths=trial.expand(1.))
+    trial.add('cost_mask', 0, ons=stim1_on, offs=response_off, strengths=trial.expand(1.))
+    trial.add('cost_mask', 1, ons=stim1_on, offs=response_off, strengths=trial.expand(1.))
+    trial.add('cost_mask', 2, ons=stim1_on, offs=response_off, strengths=trial.expand(1.))
+    trial.add('cost_mask', 3, ons=stim1_on, offs=response_off, strengths=trial.expand(1.))
+
+    # trial.epochs = {'stim':(stim1_on, stim1_off),
+    #                 'stim_delay':(cue_off,stim1_on),
+    #                 'integrate': (cue_on,cue_off),
+    #                 'response': (response_on, response_off)}
+
+
 
     trial.epochs = {'stim':(stim1_on, stim1_off),
-                    'stim_delay':(cue_off,stim1_on),
+                    'stim_delay':(stim1_off,cue_on),
                     'integrate': (cue_on,cue_off),
                     'response': (response_on, response_off)}
+
 
     trial.stim1_duration = stim1_duration
     trial.strength1_color = strength1_color
@@ -204,6 +232,9 @@ def _multisensory_output_cue_20_delay_40(config, mode, **kwargs):
     trial.strength1_motion = strength1_motion
     trial.strength2_motion = strength2_motion
     trial.cue = cue
+    
+    trial.c_color = c_color
+    trial.c_motion = c_motion
 
     trial.seq_len = xtdim
     trial.max_seq_len = xtdim.max()
@@ -211,6 +242,21 @@ def _multisensory_output_cue_20_delay_40(config, mode, **kwargs):
     return trial
 
 
+if __name__ == "__main__":
+    import seaborn as sns
+    from matplotlib import pyplot as plt
+    import default
+    fs = 10
+
+    print(sys.argv)
+
+
+    rule_trains = 'contextInteg_decision_making'
+
+    train_time_integrate = np.array([600, 1200])
+
+    hp = default.get_default_hp(rule_trains)
+    trial = generate_trials(rule_trains, hp, 'random', noise_on=True, batch_size=1)
 def contextInteg_decision_making(config, mode, **kwargs):
     return _multisensory_output_cue_20_delay_40(config, mode, **kwargs)
 
@@ -243,122 +289,94 @@ def generate_trials(rule, hp, mode, noise_on=False, **kwargs):
 
     return trial
 
-
-if __name__ == "__main__":
-    import seaborn as sns
-    from matplotlib import pyplot as plt
-    import default
-    fs = 10
-
-    print(sys.argv)
-
-    rule_trains = 'contextInteg_decision_making'
-
-    train_time_integrate = np.array([600, 1200])
-
-    # hp = default.get_default_hp(rule_trains)
-    hp = get_default_hp(rule_trains)
-    trial = generate_trials(rule_trains, hp, 'random', noise_on=True, batch_size=1)
-#%%
-trial = generate_trials(rule_trains, hp, 'random', noise_on=True, batch_size=1000)
-
-#%%
 ###rule###################################################################
+    fig1 = plt.figure(figsize=(2.0, 1.0))
+    ax1 = fig1.add_axes([0.2, 0.3, 0.7, 0.6])
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    print(trial.x.shape)
 
-fig1 = plt.figure(figsize=(2.0, 1.0))
-ax1 = fig1.add_axes([0.2, 0.3, 0.7, 0.6])
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['right'].set_visible(False)
-print(trial.x.shape)
+    rule_color = trial.x[:, :, 4]
+    rule_motion = trial.x[:, :, 5]
 
-rule_color = trial.x[:, :, 4]
-rule_motion = trial.x[:, :, 5]
-
-plt.plot(np.arange(0,120)*20,rule_color, linewidth='2', color='tab:blue', alpha=1,label = 'color')  # #1f77b4
-plt.plot(np.arange(0,120)*20,rule_motion, linewidth='2', color='orange', alpha=1,label = 'motion')  # rule1
-plt.xticks([0,25*20,120 * 20])
-plt.yticks([0, 1], fontsize=fs)
-#plt.xlabel('Time (ms)', fontsize=fs + 1)
-plt.xlim(0,120 * 20)
-plt.ylim(-0.05, 1.1)
-ax1.set_facecolor(color='whitesmoke')
-plt.legend(loc = 'lower left')
-fig1.savefig("../figure/Appendix/plot_rule.pdf")
-plt.show()
-
+    plt.plot(np.arange(0,120)*20,rule_color, linewidth='2', color='tab:blue', alpha=1)  # #1f77b4
+    plt.plot(np.arange(0,120)*20,rule_motion, linewidth='2', color='orange', alpha=1)  # rule1
+    plt.xticks([0,25*20,120 * 20])
+    plt.yticks([0, 1], fontsize=fs)
+    #plt.xlabel('Time (ms)', fontsize=fs + 1)
+    plt.xlim(0,120 * 20)
+    plt.ylim(-0.05, 1.1)
+    ax1.set_facecolor(color='whitesmoke')
+    fig1.savefig("../figure/Appendix/plot_rule.pdf")
 ###color stimulus###################################################################
-fig2 = plt.figure(figsize=(2.0, 1.0))
-ax2 = fig2.add_axes([0.2, 0.3, 0.7, 0.6])
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['right'].set_visible(False)
-print(trial.x.shape)
+    fig2 = plt.figure(figsize=(2.0, 1.0))
+    ax2 = fig2.add_axes([0.2, 0.3, 0.7, 0.6])
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    print(trial.x.shape)
 
-color_red = trial.x[:, :, 0]
-color_green = trial.x[:, :, 1]
-motion_left = trial.x[:, :, 2]
-motion_right = trial.x[:, :, 3]
+    color_red = trial.x[:, :, 0]
+    color_green = trial.x[:, :, 1]
+    motion_left = trial.x[:, :, 2]
+    motion_right = trial.x[:, :, 3]
 
-plt.plot(np.arange(0, 120) * 20, motion_left, linewidth='1', color='goldenrod', alpha=1,label = 'motion_left')  # rule1
-plt.plot(np.arange(0, 120) * 20, motion_right, linewidth='1', color='olive', alpha=1,label = 'motion_right')  # rule1
+    plt.plot(np.arange(0, 120) * 20, motion_left, linewidth='1', color='goldenrod', alpha=1)  # rule1
+    plt.plot(np.arange(0, 120) * 20, motion_right, linewidth='1', color='olive', alpha=1)  # rule1
 
-plt.plot(np.arange(0, 120) * 20, color_red, linewidth='1', color='green', alpha=1,label = 'color_green')  # rule1
-plt.plot(np.arange(0, 120) * 20, color_green, linewidth='1', color='red', alpha=1,label = 'color_red')  # rule1
-plt.xticks([])#0, 65 * 20, 120 * 20
-plt.yticks([0, 1.2], fontsize=fs)
-#plt.xlabel('Time (ms)', fontsize=fs + 1)
-ax2.set_facecolor(color='whitesmoke')
-plt.xlim(0, 120 * 20)
-plt.ylim(-0.05, 1.3)
-plt.legend(loc = 'lower right',bbox_to_anchor = [1.2,0])
-fig2.savefig("../figure/Appendix/plot_color_sti.pdf")
-
-plt.show()
+    plt.plot(np.arange(0, 120) * 20, color_red, linewidth='1', color='green', alpha=1)  # rule1
+    plt.plot(np.arange(0, 120) * 20, color_green, linewidth='1', color='red', alpha=0.8)  # rule1
+    plt.xticks([])#0, 65 * 20, 120 * 20
+    plt.yticks([0, 1.2], fontsize=fs)
+    #plt.xlabel('Time (ms)', fontsize=fs + 1)
+    ax2.set_facecolor(color='whitesmoke')
+    plt.xlim(0, 120 * 20)
+    plt.ylim(-0.05, 1.3)
+    fig2.savefig("../figure/Appendix/plot_color_sti.pdf")
 ###motion stimulus###################################################################
-fig3 = plt.figure(figsize=(2.0, 1.0))
-ax3 = fig3.add_axes([0.2, 0.3, 0.7, 0.6])
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['right'].set_visible(False)
-print(trial.x.shape)
+    fig3 = plt.figure(figsize=(2.0, 1.0))
+    ax3 = fig3.add_axes([0.2, 0.3, 0.7, 0.6])
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    print(trial.x.shape)
 
-motion_left = trial.x[:, :, 2]
-motion_right = trial.x[:, :, 3]
+    motion_left = trial.x[:, :, 2]
+    motion_right = trial.x[:, :, 3]
 
-plt.plot(np.arange(0, 120) * 20, motion_left, linewidth='1', color='goldenrod', alpha=1)  # rule1
-plt.plot(np.arange(0, 120) * 20, motion_right, linewidth='1', color='olive', alpha=1)  # rule1
-plt.xticks([])#0, 65 * 20, 120 * 20
-plt.yticks([0, 1.2], fontsize=fs)
-# plt.xlabel('Time (ms)', fontsize=fs + 1)
-ax3.set_facecolor(color='whitesmoke')
-plt.xlim(0, 120 * 20)
-plt.ylim(-0.05, 1.3)
-fig3.savefig("../figure/Appendix/plot_motion_sti.pdf")
-plt.show()
-#%%
+    plt.plot(np.arange(0, 120) * 20, motion_left, linewidth='1', color='goldenrod', alpha=1)  # rule1
+    plt.plot(np.arange(0, 120) * 20, motion_right, linewidth='1', color='olive', alpha=1)  # rule1
+    plt.xticks([])#0, 65 * 20, 120 * 20
+    plt.yticks([0, 1.2], fontsize=fs)
+    # plt.xlabel('Time (ms)', fontsize=fs + 1)
+    ax3.set_facecolor(color='whitesmoke')
+    plt.xlim(0, 120 * 20)
+    plt.ylim(-0.05, 1.3)
+    fig3.savefig("../figure/Appendix/plot_motion_sti.pdf")
+
+
 ###response###################################################################
-fig4 = plt.figure(figsize=(2.0, 1.0))
-ax4 = fig4.add_axes([0.2, 0.3, 0.7, 0.6])
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['right'].set_visible(False)
-print(trial.x.shape)
+    fig4 = plt.figure(figsize=(2.0, 1.0))
+    ax4 = fig4.add_axes([0.2, 0.3, 0.7, 0.6])
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    print(trial.x.shape)
 
-response_0 = trial.y[:, 0, 0]
-response_1 = trial.y[:, 0, 1]
-response_2 = trial.y[:, 0, 2]
-response_3 = trial.y[:, 0, 3]
+    response_0 = trial.y[:, 0, 0]
+    response_1 = trial.y[:, 0, 1]
+    response_2 = trial.y[:, 0, 2]
+    response_3 = trial.y[:, 0, 3]
 
-plt.plot(np.arange(0, 120) * 20, response_0, linewidth='1', color='green', alpha=1,label = 'color_green')  # rule1
-plt.plot(np.arange(0, 120) * 20, response_1, linewidth='1', color='red', alpha=1,label = 'color_red')  # rule1
-plt.plot(np.arange(0, 120) * 20, response_2, linewidth='1', color='goldenrod', alpha=1,label = 'motion_left')  # rule1
-plt.plot(np.arange(0, 120) * 20, response_3, linewidth='1', color='olive', alpha=1,label = 'motion_right')  # rule1
-plt.xticks([0, 120 * 20])
-plt.yticks([0, 1.2], fontsize=fs)
-ax4.set_facecolor(color='whitesmoke')
-# plt.xlabel('Time (ms)', fontsize=fs + 1)
-plt.xlim(0, 120 * 20)
-plt.ylim(-0.08, 1.3)
-# plt.legend(loc = 'lower left')
-fig4.savefig("../figure/Appendix/plot_response.pdf")
-plt.show()
+    plt.plot(np.arange(0, 120) * 20, response_0, linewidth='1', color='green', alpha=1)  # rule1
+    plt.plot(np.arange(0, 120) * 20, response_1, linewidth='1', color='red', alpha=1)  # rule1
+    plt.plot(np.arange(0, 120) * 20, response_2, linewidth='1', color='goldenrod', alpha=1)  # rule1
+    plt.plot(np.arange(0, 120) * 20, response_3, linewidth='1', color='olive', alpha=1)  # rule1
+    plt.xticks([0, 120 * 20])
+    plt.yticks([0, 1.2], fontsize=fs)
+    ax4.set_facecolor(color='whitesmoke')
+    # plt.xlabel('Time (ms)', fontsize=fs + 1)
+    plt.xlim(0, 120 * 20)
+    plt.ylim(-0.08, 1.3)
+    fig4.savefig("../figure/Appendix/plot_response.pdf")
+    plt.show()
 
 '''
     # input1
